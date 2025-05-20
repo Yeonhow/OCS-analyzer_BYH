@@ -17,9 +17,9 @@ doctor_excel = pd.ExcelFile(doctor_file_path)
 
 def classify_bozon_detail(text):
     text = str(text).lower()
-    if any(k in text for k in ['endo', 'rct', 'c/f', 'post', 'core']):
+    if any(k in text for k in ['endo', 'rct', 'c/f', 'post', 'core', 'c/i', 'c/e']):
         return 'Endo'
-    elif any(k in text for k in ['resin', 'gi', 'cr', 'crown']):
+    elif any(k in text for k in ['resin', 'gi', 'cr', 'crown','class']):
         return 'Operative'
     else:
         return '기타'
