@@ -19,7 +19,7 @@ def classify_bozon_detail(text):
     text = str(text).lower()
     if any(k in text for k in ['endo', 'rct', 'c/f', 'post', 'core', 'c/i', 'c/e']):
         return 'Endo'
-    elif any(k in text for k in ['resin', 'gi', 'cr', 'crown','class']):
+    elif any(k in text for k in ['resin', 'gi', 'cr', 'crown', 'class', 'caries']):
         return 'Operative'
     else:
         return '기타'
