@@ -123,7 +123,6 @@ if ocs_file:
             styled.loc[idx, max_col] = f"✅ {styled.loc[idx, max_col]}"
 
         # 오전/오후 총합 (FR/P 각각 계산 후 표시)
-        st.subheader("📋 전체과 오전/오후 별 진료 총합 (FR진료수(P진료수))")
         오전_fr = numeric_fr.loc[[9,10,11]].sum(numeric_only=True)
         오후_fr = numeric_fr.loc[[13,14,15,16]].sum(numeric_only=True)
         오전_p = numeric_p.loc[[9,10,11]].sum(numeric_only=True)
