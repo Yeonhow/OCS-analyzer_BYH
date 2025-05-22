@@ -120,12 +120,11 @@ if ocs_file:
             max_col = max_each_row[idx]
             styled.loc[idx, max_col] = f"✅ {styled.loc[idx, max_col]}"
 
-        # 오전/오후 총합 계산
-        combined_numeric['총합'] = combined_numeric.sum(axis=1)
-        오전합 = combined_numeric.loc[[9,10,11]].sum(numeric_only=True)
-        오후합 = combined_numeric.loc[[13,14,15,16]].sum(numeric_only=True)
-        total_summary = pd.DataFrame([오전합, 오후합], index=['오전 합', '오후 합']).drop('총합', axis=1)
-        total_summary = total_summary.astype(int).astype(str)
+        # 오전/오후 총합 (FR 진료만)
+        fr_totals = numeric_fr.copy()
+        오전합 = fr_totals.loc[[9,10,11]].sum(numeric_only=True)
+        오후합 = fr_totals.loc[[13,14,15,16]].sum(numeric_only=True)
+        total_summary = pd.DataFrame([오전합, 오후합], index=['FR진료 오전 합', 'FR진료 오후 합']).astype(int).astype(str)
 
         # 화면 출력
         styled = styled.reindex(시간순).reset_index()
@@ -134,6 +133,7 @@ if ocs_file:
 
         st.subheader("🦷 보존과 - Endo / Operative / 기타 (FR진료수(P진료수))")
         df_bozon = df_all[df_all['과명'] == '보존과']
+        df_bozon = df_bozon[df_bozon['보존내역'].isin(['Endo', 'Operative', '기타'])]
         bozon_group = df_bozon.groupby(['시', '보존내역', '구분']).size().reset_index(name='진료수')
         bozon_fr = bozon_group[bozon_group['구분'] == 'FR'].pivot(index='시', columns='보존내역', values='진료수').fillna(0).astype(int).astype(str)
         bozon_p = bozon_group[bozon_group['구분'] == 'P'].pivot(index='시', columns='보존내역', values='진료수').fillna(0).astype(int).astype(str)
@@ -153,7 +153,7 @@ if ocs_file:
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             styled.to_excel(writer, index=False, sheet_name='전체과_시간대별')
-            total_summary.to_excel(writer, index=False, sheet_name='전체_오전오후합계')
+            total_summary.to_excel(writer, index=False, sheet_name='FR_오전오후합계')
             bozon_merged.to_excel(writer, index=False, sheet_name='보존과_세부분류')
             df_prof_summary.to_excel(writer, index=False, sheet_name='P교수별_오전오후')
         output.seek(0)
