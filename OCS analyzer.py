@@ -55,8 +55,8 @@ if ocs_file:
         dept_doctor_map = {}
         for sheet in doctor_excel.sheet_names:
             df = doctor_excel.parse(sheet)
-            fr_list = df['FR'].dropna().astype(str).tolist() if 'FR' in df.columns else []
-            p_list = df['P'].dropna().astype(str).tolist() if 'P' in df.columns else []
+            fr_list = df['FR'].dropna().astype(str).str.strip().tolist() if 'FR' in df.columns else []
+            p_list = df['P'].dropna().astype(str).str.strip().tolist() if 'P' in df.columns else []
             dept_doctor_map[sheet.strip()] = {'FR': fr_list, 'P': p_list}
 
         all_records = []
@@ -80,10 +80,11 @@ if ocs_file:
                 df = df[df['시'].isin(시간순)]
 
                 df['보존내역'] = df['진료내역'].astype(str).apply(classify_bozon_detail) if '진료내역' in df.columns else '-'
+                df['예약의사'] = df['예약의사'].astype(str).str.strip()
+
                 df['구분'] = df['예약의사'].apply(lambda x:
                     'FR' if x in dept_doctor_map[sheet]['FR'] else
-                    ('P' if x in dept_doctor_map[sheet]['P'] else None))
-                df = df[df['구분'].notna()]
+                    ('P' if x in dept_doctor_map[sheet]['P'] else 'FR'))  # 명시되지 않은 의사는 FR 처리
 
                 for _, row in df.iterrows():
                     all_records.append({
