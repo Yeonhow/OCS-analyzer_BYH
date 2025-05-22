@@ -20,8 +20,10 @@ def classify_bozon_detail(text):
     text = str(text).lower()
     if any(k in text for k in ['endo', 'rct', 'c/f', 'post', 'core']):
         return 'Endo'
-    elif any(k in text for k in ['resin', 'gi', 'cr', 'crown']):
+    elif any(k in text for k in ['resin', 'gi', 'cr', 'crown', 'zir', 'p/s']):
         return 'Operative'
+    elif any(k in text for k in ['r/c', 'pano', 'imp', 'occ']):
+        return '기타'
     else:
         return '기타'
 
@@ -120,16 +122,21 @@ if ocs_file:
             max_col = max_each_row[idx]
             styled.loc[idx, max_col] = f"✅ {styled.loc[idx, max_col]}"
 
-        # 오전/오후 총합 (FR 진료만)
-        fr_totals = numeric_fr.copy()
-        오전합 = fr_totals.loc[[9,10,11]].sum(numeric_only=True)
-        오후합 = fr_totals.loc[[13,14,15,16]].sum(numeric_only=True)
-        total_summary = pd.DataFrame([오전합, 오후합], index=['FR진료 오전 합', 'FR진료 오후 합']).astype(int).astype(str)
+        # 오전/오후 총합 (FR/P 각각 계산 후 표시)
+        오전_fr = numeric_fr.loc[[9,10,11]].sum(numeric_only=True)
+        오후_fr = numeric_fr.loc[[13,14,15,16]].sum(numeric_only=True)
+        오전_p = numeric_p.loc[[9,10,11]].sum(numeric_only=True)
+        오후_p = numeric_p.loc[[13,14,15,16]].sum(numeric_only=True)
+
+        frp_summary = (오전_fr.astype(str) + "(" + 오전_p.astype(str) + ")").to_frame().T
+        frp_summary = pd.concat([frp_summary,
+                                 (오후_fr.astype(str) + "(" + 오후_p.astype(str) + ")").to_frame().T])
+        frp_summary.index = ['오전 총합 FR(P)', '오후 총합 FR(P)']
 
         # 화면 출력
         styled = styled.reindex(시간순).reset_index()
         st.dataframe(styled, use_container_width=True)
-        st.dataframe(total_summary, use_container_width=True)
+        st.dataframe(frp_summary, use_container_width=True)
 
         st.subheader("🦷 보존과 - Endo / Operative / 기타 (FR진료수(P진료수))")
         df_bozon = df_all[df_all['과명'] == '보존과']
@@ -137,9 +144,11 @@ if ocs_file:
         bozon_group = df_bozon.groupby(['시', '보존내역', '구분']).size().reset_index(name='진료수')
         bozon_fr = bozon_group[bozon_group['구분'] == 'FR'].pivot(index='시', columns='보존내역', values='진료수').fillna(0).astype(int).astype(str)
         bozon_p = bozon_group[bozon_group['구분'] == 'P'].pivot(index='시', columns='보존내역', values='진료수').fillna(0).astype(int).astype(str)
+        bozon_fr = bozon_fr.reindex(시간순, fill_value='0')
+        bozon_p = bozon_p.reindex(시간순, fill_value='0')
         bozon_fr, bozon_p = bozon_fr.align(bozon_p, join='outer', axis=1, fill_value='0')
         bozon_merged = bozon_fr + "(" + bozon_p + ")"
-        bozon_merged = bozon_merged.reindex(시간순).reset_index()
+        bozon_merged = bozon_merged.fillna("0(0)").reset_index()
         st.dataframe(bozon_merged, use_container_width=True)
 
         st.subheader("👨‍⚕️ 교수별 오전/오후 진료 요약 (구강내과 · 보철과)")
@@ -153,7 +162,7 @@ if ocs_file:
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             styled.to_excel(writer, index=False, sheet_name='전체과_시간대별')
-            total_summary.to_excel(writer, index=False, sheet_name='FR_오전오후합계')
+            frp_summary.to_excel(writer, index=False, sheet_name='FRP_오전오후합계')
             bozon_merged.to_excel(writer, index=False, sheet_name='보존과_세부분류')
             df_prof_summary.to_excel(writer, index=False, sheet_name='P교수별_오전오후')
         output.seek(0)
