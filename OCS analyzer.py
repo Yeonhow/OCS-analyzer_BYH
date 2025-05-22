@@ -112,26 +112,26 @@ if ocs_file:
         merged_total = pivot_fr + "(" + pivot_p + ")"
 
        # ✅ 가장 많은 과 표시 (교정과는 FR+P, 그 외는 FR)
-styled = merged_total.copy()
-max_each_row = []
+        styled = merged_total.copy()
+        max_each_row = []
 
-for idx in styled.index:
-    row_values = {}
-    for col in styled.columns:
-        fr_val = int(pivot_fr.loc[idx, col]) if col in pivot_fr.columns else 0
-        p_val = int(pivot_p.loc[idx, col]) if col in pivot_p.columns else 0
-        if col == '교정과':
-            total_val = fr_val + p_val
-        else:
-            total_val = fr_val
-        row_values[col] = total_val
+        for idx in styled.index:
+            row_values = {}
+            for col in styled.columns:
+                fr_val = int(pivot_fr.loc[idx, col]) if col in pivot_fr.columns else 0
+                p_val = int(pivot_p.loc[idx, col]) if col in pivot_p.columns else 0
+                if col == '교정과':
+                    total_val = fr_val + p_val
+                else:
+                    total_val = fr_val
+                row_values[col] = total_val
 
-    max_col = max(row_values, key=row_values.get)
-    max_each_row.append(max_col)
+            max_col = max(row_values, key=row_values.get)
+            max_each_row.append(max_col)
 
-# ✅ 강조 반영
-for idx, max_col in zip(styled.index, max_each_row):
-    styled.loc[idx, max_col] = f"✅ {styled.loc[idx, max_col]}"
+    # ✅ 강조 반영
+    for idx, max_col in zip(styled.index, max_each_row):
+        styled.loc[idx, max_col] = f"✅ {styled.loc[idx, max_col]}"
 
         # 오전/오후 총합 (FR/P 각각 계산 후 표시)
         오전_fr = numeric_fr.loc[[9,10,11]].sum(numeric_only=True)
