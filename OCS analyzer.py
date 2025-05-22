@@ -17,9 +17,9 @@ doctor_excel = pd.ExcelFile(doctor_file_path)
 
 def classify_bozon_detail(text):
     text = str(text).lower()
-    if any(k in text for k in ['endo', 'rct', 'c/f', 'post', 'core', 'c/i', 'c/e']):
+    if any(k in text for k in ['endo', 'rct', 'c/f', 'post', 'core']):
         return 'Endo'
-    elif any(k in text for k in ['resin', 'gi', 'cr', 'crown', 'class', 'caries']):
+    elif any(k in text for k in ['resin', 'gi', 'cr', 'crown']):
         return 'Operative'
     else:
         return '기타'
@@ -101,18 +101,18 @@ if ocs_file:
 
         st.subheader("📋 전체과 시간대별 진료 요약 (FR진료수(P진료수))")
         total_group = df_all.groupby(['시', '과명', '구분']).size().reset_index(name='진료수')
-        pivot_fr = total_group[total_group['구분'] == 'FR'].pivot(index='시', columns='과명', values='진료수').fillna(0)
-        pivot_p = total_group[total_group['구분'] == 'P'].pivot(index='시', columns='과명', values='진료수').fillna(0)
-        merged_total = pivot_fr.astype(int).astype(str) + "(" + pivot_p.astype(int).astype(str) + ")"
+        pivot_fr = total_group[total_group['구분'] == 'FR'].pivot(index='시', columns='과명', values='진료수').fillna(0).astype(int).astype(str)
+        pivot_p = total_group[total_group['구분'] == 'P'].pivot(index='시', columns='과명', values='진료수').fillna(0).astype(int).astype(str)
+        merged_total = pivot_fr + "(" + pivot_p + ")"
         merged_total = merged_total.reindex(시간순).reset_index()
         st.dataframe(merged_total, use_container_width=True)
 
         st.subheader("🦷 보존과 - Endo / Operative / 기타 (FR진료수(P진료수))")
         df_bozon = df_all[df_all['과명'] == '보존과']
         bozon_group = df_bozon.groupby(['시', '보존내역', '구분']).size().reset_index(name='진료수')
-        bozon_fr = bozon_group[bozon_group['구분'] == 'FR'].pivot(index='시', columns='보존내역', values='진료수').fillna(0)
-        bozon_p = bozon_group[bozon_group['구분'] == 'P'].pivot(index='시', columns='보존내역', values='진료수').fillna(0)
-        bozon_merged = bozon_fr.astype(int).astype(str) + "(" + bozon_p.astype(int).astype(str) + ")"
+        bozon_fr = bozon_group[bozon_group['구분'] == 'FR'].pivot(index='시', columns='보존내역', values='진료수').fillna(0).astype(int).astype(str)
+        bozon_p = bozon_group[bozon_group['구분'] == 'P'].pivot(index='시', columns='보존내역', values='진료수').fillna(0).astype(int).astype(str)
+        bozon_merged = bozon_fr + "(" + bozon_p + ")"
         bozon_merged = bozon_merged.reindex(시간순).reset_index()
         st.dataframe(bozon_merged, use_container_width=True)
 
