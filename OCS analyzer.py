@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import io
 import msoffcrypto
+import re
 
 st.set_page_config(page_title="📊 OCS 진료 분석기", layout="wide")
 st.title("🦷 전체과 진료 요약 + 교수별 시간대 분석")
@@ -24,11 +25,12 @@ def classify_bozon_detail(text):
     else:
         return '기타'
 
-def get_hour(time_str):
-    try:
-        return int(str(time_str).split(":")[0])
-    except:
-        return None
+def get_hour_flexible(time_str):
+    time_str = str(time_str)
+    match = re.search(r'(\d{1,2})[:시]', time_str)
+    if match:
+        return int(match.group(1))
+    return None
 
 def get_am_pm(hour):
     return '오전' if hour is not None and hour < 12 else '오후'
@@ -75,7 +77,7 @@ if ocs_file:
                     continue
 
                 df = df[df['예약의사'].notna()]
-                df['시'] = df['예약시간'].astype(str).apply(get_hour)
+                df['시'] = df['예약시간'].astype(str).apply(get_hour_flexible)
                 df['시간대'] = df['시'].apply(get_am_pm)
                 df = df[df['시'].isin(시간순)]
 
@@ -84,7 +86,7 @@ if ocs_file:
 
                 df['구분'] = df['예약의사'].apply(lambda x:
                     'FR' if x in dept_doctor_map[sheet]['FR'] else
-                    ('P' if x in dept_doctor_map[sheet]['P'] else 'FR'))  # 명시되지 않은 의사는 FR 처리
+                    ('P' if x in dept_doctor_map[sheet]['P'] else 'FR'))
 
                 for _, row in df.iterrows():
                     all_records.append({
@@ -106,8 +108,29 @@ if ocs_file:
         pivot_p = total_group[total_group['구분'] == 'P'].pivot(index='시', columns='과명', values='진료수').fillna(0).astype(int).astype(str)
         pivot_fr, pivot_p = pivot_fr.align(pivot_p, join='outer', axis=1, fill_value='0')
         merged_total = pivot_fr + "(" + pivot_p + ")"
-        merged_total = merged_total.reindex(시간순).reset_index()
-        st.dataframe(merged_total, use_container_width=True)
+
+        # 시각적 강조용 가장 많은 과 표시 (숫자 비교용 기준 테이블 필요)
+        numeric_fr = pivot_fr.astype(int)
+        numeric_p = pivot_p.astype(int)
+        combined_numeric = numeric_fr + numeric_p
+        max_each_row = combined_numeric.idxmax(axis=1)
+
+        styled = merged_total.copy()
+        for idx in styled.index:
+            max_col = max_each_row[idx]
+            styled.loc[idx, max_col] = f"✅ {styled.loc[idx, max_col]}"
+
+        # 오전/오후 총합 계산
+        combined_numeric['총합'] = combined_numeric.sum(axis=1)
+        오전합 = combined_numeric.loc[[9,10,11]].sum(numeric_only=True)
+        오후합 = combined_numeric.loc[[13,14,15,16]].sum(numeric_only=True)
+        total_summary = pd.DataFrame([오전합, 오후합], index=['오전 합', '오후 합']).drop('총합', axis=1)
+        total_summary = total_summary.astype(int).astype(str)
+
+        # 화면 출력
+        styled = styled.reindex(시간순).reset_index()
+        st.dataframe(styled, use_container_width=True)
+        st.dataframe(total_summary, use_container_width=True)
 
         st.subheader("🦷 보존과 - Endo / Operative / 기타 (FR진료수(P진료수))")
         df_bozon = df_all[df_all['과명'] == '보존과']
@@ -129,7 +152,8 @@ if ocs_file:
         # 📥 엑셀 다운로드 기능
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            merged_total.to_excel(writer, index=False, sheet_name='전체과_시간대별')
+            styled.to_excel(writer, index=False, sheet_name='전체과_시간대별')
+            total_summary.to_excel(writer, index=False, sheet_name='전체_오전오후합계')
             bozon_merged.to_excel(writer, index=False, sheet_name='보존과_세부분류')
             df_prof_summary.to_excel(writer, index=False, sheet_name='P교수별_오전오후')
         output.seek(0)
