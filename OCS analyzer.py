@@ -141,6 +141,7 @@ if ocs_file:
         frp_summary.index = ['오전 총합 FR(P)', '오후 총합 FR(P)']
 
         # 화면 출력
+        st.subheader("📋 전체과 오전/오후별 총진료수 (FR진료수(P진료수))")
         styled = styled.reindex(시간순).reset_index()
         st.dataframe(styled, use_container_width=True)
         st.dataframe(frp_summary, use_container_width=True)
