@@ -104,7 +104,7 @@ if ocs_file:
 
         df_all = pd.DataFrame(all_records)
 
-        st.subheader("📋 전체과 시간대별 진료 요약 (FR진료수(P진료수))")
+        st.subheader("📋 전체과 시간대별 진료 요약 ?(FR진료수(P진료수))")
         total_group = df_all.groupby(['시', '과명', '구분']).size().reset_index(name='진료수')
         pivot_fr = total_group[total_group['구분'] == 'FR'].pivot(index='시', columns='과명', values='진료수').fillna(0).astype(int).astype(str)
         pivot_p = total_group[total_group['구분'] == 'P'].pivot(index='시', columns='과명', values='진료수').fillna(0).astype(int).astype(str)
@@ -141,6 +141,7 @@ if ocs_file:
         frp_summary.index = ['오전 총합 FR(P)', '오후 총합 FR(P)']
 
         # 화면 출력
+        st.subheader("📋 전체과 오전/오후별 총진료수 (FR진료수(P진료수))")
         styled = styled.reindex(시간순).reset_index()
         st.dataframe(styled, use_container_width=True)
         st.dataframe(frp_summary, use_container_width=True)
