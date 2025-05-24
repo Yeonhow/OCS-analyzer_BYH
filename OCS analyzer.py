@@ -75,7 +75,7 @@ if ocs_file:
                     continue
 
                 df = df[df[col_doctor].notna()]
-                df['시'] = df[col_time].astype(str).apply(get_hour_flexible)
+                df['시'] = df[col_time].astype(str).apply(get_hour_flexible).astype('Int64')
                 df['시간대'] = df['시'].apply(get_am_pm)
                 df = df[df['시'].isin(시간순)]
 
@@ -124,10 +124,10 @@ if ocs_file:
         for idx, max_col in zip(styled.index, max_each_row):
             styled.loc[idx, max_col] = f"✅ {styled.loc[idx, max_col]}"
 
-        오전_fr = numeric_fr.loc[[9,10,11]].sum(numeric_only=True)
-        오후_fr = numeric_fr.loc[[13,14,15,16]].sum(numeric_only=True)
-        오전_p = numeric_p.loc[[9,10,11]].sum(numeric_only=True)
-        오후_p = numeric_p.loc[[13,14,15,16]].sum(numeric_only=True)
+        오전_fr = numeric_fr.loc[[9,10,11]].sum()
+        오후_fr = numeric_fr.loc[[13,14,15,16]].sum()
+        오전_p = numeric_p.loc[[9,10,11]].sum()
+        오후_p = numeric_p.loc[[13,14,15,16]].sum()
 
         frp_summary = (오전_fr.astype(str) + "(" + 오전_p.astype(str) + ")").to_frame().T
         frp_summary = pd.concat([frp_summary,
