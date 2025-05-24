@@ -37,6 +37,12 @@ def get_hour_flexible(time_str):
 def get_am_pm(hour):
     return '오전' if hour is not None and hour < 12 else '오후'
 
+def find_column(df, candidates):
+    for c in candidates:
+        if c in df.columns:
+            return c
+    return None
+
 if ocs_file:
     try:
         if ocs_password:
@@ -61,18 +67,22 @@ if ocs_file:
                 continue
             try:
                 df = ocs_excel.parse(sheet, header=1)
-                if '예약의사' not in df.columns or '예약시간' not in df.columns:
+
+                col_doctor = find_column(df, ['예약의사', '의사', '담당의사'])
+                col_time = find_column(df, ['예약시간', '시간', '예약 일시'])
+
+                if col_doctor is None or col_time is None:
                     continue
 
-                df = df[df['예약의사'].notna()]
-                df['시'] = df['예약시간'].astype(str).apply(get_hour_flexible)
+                df = df[df[col_doctor].notna()]
+                df['시'] = df[col_time].astype(str).apply(get_hour_flexible)
                 df['시간대'] = df['시'].apply(get_am_pm)
                 df = df[df['시'].isin(시간순)]
 
                 df['보존내역'] = df['진료내역'].astype(str).apply(classify_bozon_detail) if '진료내역' in df.columns else '-'
-                df['예약의사'] = df['예약의사'].astype(str).str.strip()
+                df[col_doctor] = df[col_doctor].astype(str).str.strip()
 
-                df['구분'] = df['예약의사'].apply(lambda x:
+                df['구분'] = df[col_doctor].apply(lambda x:
                     'FR' if x in dept_doctor_map[sheet]['FR'] else
                     ('P' if x in dept_doctor_map[sheet]['P'] else 'FR'))
 
@@ -83,7 +93,7 @@ if ocs_file:
                         '시간대': row['시간대'],
                         '구분': row['구분'],
                         '보존내역': row['보존내역'],
-                        '예약의사': row['예약의사']
+                        '예약의사': row[col_doctor]
                     })
             except Exception as e:
                 st.warning(f"⚠️ 시트 {sheet} 오류: {e}")
