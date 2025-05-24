@@ -134,6 +134,7 @@ if ocs_file:
                                  (오후_fr.astype(str) + "(" + 오후_p.astype(str) + ")").to_frame().T])
         frp_summary.index = ['오전 총합 FR(P)', '오후 총합 FR(P)']
 
+        시간순 = sorted(set(시간순).intersection(set(styled.index)))
         styled = styled.reindex(시간순).reset_index()
         st.dataframe(styled, use_container_width=True)
         st.dataframe(frp_summary, use_container_width=True)
