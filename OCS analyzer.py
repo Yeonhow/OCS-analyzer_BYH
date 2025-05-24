@@ -20,9 +20,9 @@ def classify_bozon_detail(text):
     text = str(text).lower()
     if any(k in text for k in ['endo', 'rct', 'c/f', 'post', 'core']):
         return 'Endo'
-    elif any(k in text for k in ['resin', 'gi', 'cr', 'crown', 'zir', 'imp', 'occ', 'class']):
+    elif any(k in text for k in ['resin', 'gi', 'cr', 'crown', 'zir', 'p/s']):
         return 'Operative'
-    elif any(k in text for k in ['r/c', 'pano']):
+    elif any(k in text for k in ['r/c', 'pano', 'imp', 'occ']):
         return '기타'
     else:
         return '기타'
@@ -37,13 +37,6 @@ def get_hour_flexible(time_str):
 def get_am_pm(hour):
     return '오전' if hour is not None and hour < 12 else '오후'
 
-def detect_header_row(df):
-    for i in range(min(10, len(df))):
-        row = df.iloc[i].astype(str).tolist()
-        if any("예약" in cell for cell in row):
-            return i
-    return None
-
 if ocs_file:
     try:
         if ocs_password:
@@ -55,7 +48,6 @@ if ocs_file:
         else:
             ocs_excel = pd.ExcelFile(ocs_file)
 
-        # doctor_list 처리
         dept_doctor_map = {}
         for sheet in doctor_excel.sheet_names:
             df = doctor_excel.parse(sheet)
@@ -64,17 +56,11 @@ if ocs_file:
             dept_doctor_map[sheet.strip()] = {'FR': fr_list, 'P': p_list}
 
         all_records = []
-
         for sheet in ocs_excel.sheet_names:
             if sheet not in dept_doctor_map:
                 continue
             try:
-                preview = ocs_excel.parse(sheet, nrows=10, header=None)
-                header_row = detect_header_row(preview)
-                if header_row is None:
-                    continue
-
-                df = ocs_excel.parse(sheet, skiprows=header_row)
+                df = ocs_excel.parse(sheet, header=1)
                 if '예약의사' not in df.columns or '예약시간' not in df.columns:
                     continue
 
@@ -104,14 +90,13 @@ if ocs_file:
 
         df_all = pd.DataFrame(all_records)
 
-        st.subheader("📋 전체과 시간대별 진료 요약(FR진료수(P진료수))")
+        st.subheader("📋 전체과 시간대별 진료 요약 (FR진료수(P진료수))")
         total_group = df_all.groupby(['시', '과명', '구분']).size().reset_index(name='진료수')
         pivot_fr = total_group[total_group['구분'] == 'FR'].pivot(index='시', columns='과명', values='진료수').fillna(0).astype(int).astype(str)
         pivot_p = total_group[total_group['구분'] == 'P'].pivot(index='시', columns='과명', values='진료수').fillna(0).astype(int).astype(str)
         pivot_fr, pivot_p = pivot_fr.align(pivot_p, join='outer', axis=1, fill_value='0')
         merged_total = pivot_fr + "(" + pivot_p + ")"
 
-        # ✅ 가장 많은 과 표시 (교정과는 FR+P, 그 외는 FR 기준)
         styled = merged_total.copy()
         numeric_fr = pivot_fr.astype(int)
         numeric_p = pivot_p.astype(int)
@@ -129,7 +114,6 @@ if ocs_file:
         for idx, max_col in zip(styled.index, max_each_row):
             styled.loc[idx, max_col] = f"✅ {styled.loc[idx, max_col]}"
 
-        # 오전/오후 총합 (FR/P 각각 계산 후 표시)
         오전_fr = numeric_fr.loc[[9,10,11]].sum(numeric_only=True)
         오후_fr = numeric_fr.loc[[13,14,15,16]].sum(numeric_only=True)
         오전_p = numeric_p.loc[[9,10,11]].sum(numeric_only=True)
@@ -140,7 +124,6 @@ if ocs_file:
                                  (오후_fr.astype(str) + "(" + 오후_p.astype(str) + ")").to_frame().T])
         frp_summary.index = ['오전 총합 FR(P)', '오후 총합 FR(P)']
 
-        # 화면 출력
         styled = styled.reindex(시간순).reset_index()
         st.dataframe(styled, use_container_width=True)
         st.dataframe(frp_summary, use_container_width=True)
@@ -165,7 +148,6 @@ if ocs_file:
         ).reset_index()
         st.dataframe(df_prof_summary, use_container_width=True)
 
-        # 📥 엑셀 다운로드 기능
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             styled.to_excel(writer, index=False, sheet_name='전체과_시간대별')
