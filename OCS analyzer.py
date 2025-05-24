@@ -109,6 +109,8 @@ if ocs_file:
         merged_total = pivot_fr.astype(str) + "(" + pivot_p.astype(str) + ")"
 
         styled = merged_total.copy()
+        styled.index = styled.index.astype(int)  # 핵심 수정: index 강제 int 변환
+
         max_each_row = []
         for idx in styled.index:
             row_values = {}
@@ -123,7 +125,6 @@ if ocs_file:
         for idx, max_col in zip(styled.index, max_each_row):
             styled.loc[idx, max_col] = f"✅ {styled.loc[idx, max_col]}"
 
-        # 오전/오후 시간 필터링 안전하게
         오전_index = [h for h in 시간순 if h < 12]
         오후_index = [h for h in 시간순 if h >= 12]
 
@@ -147,6 +148,8 @@ if ocs_file:
         bozon_group = df_bozon.groupby(['시', '보존내역', '구분']).size().reset_index(name='진료수')
         bozon_fr = bozon_group[bozon_group['구분'] == 'FR'].pivot(index='시', columns='보존내역', values='진료수').fillna(0).astype(int)
         bozon_p = bozon_group[bozon_group['구분'] == 'P'].pivot(index='시', columns='보존내역', values='진료수').fillna(0).astype(int)
+        bozon_fr.index = bozon_fr.index.astype(int)
+        bozon_p.index = bozon_p.index.astype(int)
         bozon_fr = bozon_fr.reindex([h for h in 시간순 if h in bozon_fr.index], fill_value=0)
         bozon_p = bozon_p.reindex([h for h in 시간순 if h in bozon_p.index], fill_value=0)
         bozon_merged = bozon_fr.astype(str) + "(" + bozon_p.astype(str) + ")"
