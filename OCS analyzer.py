@@ -75,7 +75,7 @@ if ocs_file:
                 df = df[df[col_doctor].notna()]
                 df['시'] = df[col_time].astype(str).apply(get_hour_flexible)
                 df = df[df['시'].notna()]
-                df['시'] = df['시'].astype('Int64')
+                df['시'] = df['시'].astype(int)
                 df['시간대'] = df['시'].apply(get_am_pm)
 
                 df['보존내역'] = df['진료내역'].astype(str).apply(classify_bozon_detail) if '진료내역' in df.columns else '-'
@@ -98,24 +98,23 @@ if ocs_file:
                 st.warning(f"⚠️ 시트 {sheet} 오류: {e}")
 
         df_all = pd.DataFrame(all_records)
-        시간순 = sorted(df_all['시'].dropna().unique().tolist())
+        시간순 = sorted(df_all['시'].dropna().astype(int).unique().tolist())
 
         st.subheader("📋 전체과 시간대별 진료 요약 (FR진료수(P진료수))")
         total_group = df_all.groupby(['시', '과명', '구분']).size().reset_index(name='진료수')
-        pivot_fr = total_group[total_group['구분'] == 'FR'].pivot(index='시', columns='과명', values='진료수').fillna(0).astype(int).astype(str)
-        pivot_p = total_group[total_group['구분'] == 'P'].pivot(index='시', columns='과명', values='진료수').fillna(0).astype(int).astype(str)
-        pivot_fr, pivot_p = pivot_fr.align(pivot_p, join='outer', axis=1, fill_value='0')
-        merged_total = pivot_fr + "(" + pivot_p + ")"
+        pivot_fr = total_group[total_group['구분'] == 'FR'].pivot(index='시', columns='과명', values='진료수').fillna(0).astype(int)
+        pivot_p = total_group[total_group['구분'] == 'P'].pivot(index='시', columns='과명', values='진료수').fillna(0).astype(int)
+
+        pivot_fr, pivot_p = pivot_fr.align(pivot_p, join='outer', axis=1, fill_value=0)
+        merged_total = pivot_fr.astype(str) + "(" + pivot_p.astype(str) + ")"
 
         styled = merged_total.copy()
-        numeric_fr = pivot_fr.astype(int)
-        numeric_p = pivot_p.astype(int)
         max_each_row = []
         for idx in styled.index:
             row_values = {}
             for col in styled.columns:
-                fr_val = numeric_fr.loc[idx, col] if col in numeric_fr.columns else 0
-                p_val = numeric_p.loc[idx, col] if col in numeric_p.columns else 0
+                fr_val = pivot_fr.loc[idx, col] if col in pivot_fr.columns else 0
+                p_val = pivot_p.loc[idx, col] if col in pivot_p.columns else 0
                 total_val = fr_val + p_val if col == '교정과' else fr_val
                 row_values[col] = total_val
             max_col = max(row_values, key=row_values.get)
@@ -124,17 +123,16 @@ if ocs_file:
         for idx, max_col in zip(styled.index, max_each_row):
             styled.loc[idx, max_col] = f"✅ {styled.loc[idx, max_col]}"
 
-        오전_fr = numeric_fr[numeric_fr.index < 12].reindex(시간순, fill_value=0).sum()
-        오후_fr = numeric_fr[numeric_fr.index >= 12].reindex(시간순, fill_value=0).sum()
-        오전_p = numeric_p[numeric_p.index < 12].reindex(시간순, fill_value=0).sum()
-        오후_p = numeric_p[numeric_p.index >= 12].reindex(시간순, fill_value=0).sum()
+        오전_fr = pivot_fr[pivot_fr.index < 12].sum().astype(int)
+        오후_fr = pivot_fr[pivot_fr.index >= 12].sum().astype(int)
+        오전_p = pivot_p[pivot_p.index < 12].sum().astype(int)
+        오후_p = pivot_p[pivot_p.index >= 12].sum().astype(int)
 
-        frp_summary = (오전_fr.astype(int).astype(str) + "(" + 오전_p.astype(int).astype(str) + ")").to_frame().T
-        frp_summary = pd.concat([frp_summary,
-                                 (오후_fr.astype(int).astype(str) + "(" + 오후_p.astype(int).astype(str) + ")").to_frame().T])
-        frp_summary.index = ['오전 총합 FR(P)', '오후 총합 FR(P)']
+        오전_total = 오전_fr.astype(str) + "(" + 오전_p.astype(str) + ")"
+        오후_total = 오후_fr.astype(str) + "(" + 오후_p.astype(str) + ")"
 
-        시간순 = sorted(set(시간순).intersection(set(styled.index)))
+        frp_summary = pd.DataFrame([오전_total, 오후_total], index=['오전 총합 FR(P)', '오후 총합 FR(P)'])
+
         styled = styled.reindex(시간순).reset_index()
         st.dataframe(styled, use_container_width=True)
         st.dataframe(frp_summary, use_container_width=True)
@@ -143,12 +141,11 @@ if ocs_file:
         df_bozon = df_all[df_all['과명'] == '보존과']
         df_bozon = df_bozon[df_bozon['보존내역'].isin(['Endo', 'Operative', '기타'])]
         bozon_group = df_bozon.groupby(['시', '보존내역', '구분']).size().reset_index(name='진료수')
-        bozon_fr = bozon_group[bozon_group['구분'] == 'FR'].pivot(index='시', columns='보존내역', values='진료수').fillna(0).astype(int).astype(str)
-        bozon_p = bozon_group[bozon_group['구분'] == 'P'].pivot(index='시', columns='보존내역', values='진료수').fillna(0).astype(int).astype(str)
-        bozon_fr = bozon_fr.reindex(시간순, fill_value='0')
-        bozon_p = bozon_p.reindex(시간순, fill_value='0')
-        bozon_fr, bozon_p = bozon_fr.align(bozon_p, join='outer', axis=1, fill_value='0')
-        bozon_merged = bozon_fr + "(" + bozon_p + ")"
+        bozon_fr = bozon_group[bozon_group['구분'] == 'FR'].pivot(index='시', columns='보존내역', values='진료수').fillna(0).astype(int)
+        bozon_p = bozon_group[bozon_group['구분'] == 'P'].pivot(index='시', columns='보존내역', values='진료수').fillna(0).astype(int)
+        bozon_fr = bozon_fr.reindex(시간순, fill_value=0)
+        bozon_p = bozon_p.reindex(시간순, fill_value=0)
+        bozon_merged = bozon_fr.astype(str) + "(" + bozon_p.astype(str) + ")"
         bozon_merged = bozon_merged.fillna("0(0)").reset_index()
         st.dataframe(bozon_merged, use_container_width=True)
 
@@ -162,7 +159,7 @@ if ocs_file:
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             styled.to_excel(writer, index=False, sheet_name='전체과_시간대별')
-            frp_summary.to_excel(writer, index=False, sheet_name='FRP_오전오후합계')
+            frp_summary.to_excel(writer, sheet_name='FRP_오전오후합계')
             bozon_merged.to_excel(writer, index=False, sheet_name='보존과_세부분류')
             df_prof_summary.to_excel(writer, index=False, sheet_name='P교수별_오전오후')
         output.seek(0)
