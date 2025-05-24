@@ -14,7 +14,7 @@ ocs_password = st.text_input("🔐 OCS 파일 비밀번호 (있을 경우 입력
 doctor_file_path = "doctor_list.xlsx"
 doctor_excel = pd.ExcelFile(doctor_file_path)
 
-시간순 = [9, 10, 11, 13, 14, 15, 16]
+시간순 = [8, 9, 10, 11, 13, 14, 15, 16]
 
 def classify_bozon_detail(text):
     text = str(text).lower()
@@ -126,9 +126,9 @@ if ocs_file:
         for idx, max_col in zip(styled.index, max_each_row):
             styled.loc[idx, max_col] = f"✅ {styled.loc[idx, max_col]}"
 
-        오전_fr = numeric_fr.loc[[9,10,11]].sum()
+        오전_fr = numeric_fr.loc[[8, 9,10,11]].sum()
         오후_fr = numeric_fr.loc[[13,14,15,16]].sum()
-        오전_p = numeric_p.loc[[9,10,11]].sum()
+        오전_p = numeric_p.loc[[8, 9,10,11]].sum()
         오후_p = numeric_p.loc[[13,14,15,16]].sum()
 
         frp_summary = (오전_fr.astype(str) + "(" + 오전_p.astype(str) + ")").to_frame().T
