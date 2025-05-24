@@ -14,8 +14,6 @@ ocs_password = st.text_input("🔐 OCS 파일 비밀번호 (있을 경우 입력
 doctor_file_path = "doctor_list.xlsx"
 doctor_excel = pd.ExcelFile(doctor_file_path)
 
-시간순 = [8, 9, 10, 11, 13, 14, 15, 16]
-
 def classify_bozon_detail(text):
     text = str(text).lower()
     if any(k in text for k in ['endo', 'rct', 'c/f', 'post', 'core']):
@@ -79,7 +77,6 @@ if ocs_file:
                 df = df[df['시'].notna()]
                 df['시'] = df['시'].astype('Int64')
                 df['시간대'] = df['시'].apply(get_am_pm)
-                df = df[df['시'].isin(시간순)]
 
                 df['보존내역'] = df['진료내역'].astype(str).apply(classify_bozon_detail) if '진료내역' in df.columns else '-'
                 df[col_doctor] = df[col_doctor].astype(str).str.strip()
@@ -101,6 +98,7 @@ if ocs_file:
                 st.warning(f"⚠️ 시트 {sheet} 오류: {e}")
 
         df_all = pd.DataFrame(all_records)
+        시간순 = sorted(df_all['시'].dropna().unique().tolist())
 
         st.subheader("📋 전체과 시간대별 진료 요약 (FR진료수(P진료수))")
         total_group = df_all.groupby(['시', '과명', '구분']).size().reset_index(name='진료수')
@@ -126,10 +124,10 @@ if ocs_file:
         for idx, max_col in zip(styled.index, max_each_row):
             styled.loc[idx, max_col] = f"✅ {styled.loc[idx, max_col]}"
 
-        오전_fr = numeric_fr.loc[[8, 9,10,11]].sum()
-        오후_fr = numeric_fr.loc[[13,14,15,16]].sum()
-        오전_p = numeric_p.loc[[8, 9,10,11]].sum()
-        오후_p = numeric_p.loc[[13,14,15,16]].sum()
+        오전_fr = numeric_fr[numeric_fr.index < 12].sum()
+        오후_fr = numeric_fr[numeric_fr.index >= 12].sum()
+        오전_p = numeric_p[numeric_p.index < 12].sum()
+        오후_p = numeric_p[numeric_p.index >= 12].sum()
 
         frp_summary = (오전_fr.astype(str) + "(" + 오전_p.astype(str) + ")").to_frame().T
         frp_summary = pd.concat([frp_summary,
