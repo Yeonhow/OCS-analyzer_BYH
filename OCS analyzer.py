@@ -75,7 +75,9 @@ if ocs_file:
                     continue
 
                 df = df[df[col_doctor].notna()]
-                df['시'] = df[col_time].astype(str).apply(get_hour_flexible).astype('Int64')
+                df['시'] = df[col_time].astype(str).apply(get_hour_flexible)
+                df = df[df['시'].notna()]
+                df['시'] = df['시'].astype('Int64')
                 df['시간대'] = df['시'].apply(get_am_pm)
                 df = df[df['시'].isin(시간순)]
 
