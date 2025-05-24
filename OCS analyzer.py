@@ -123,17 +123,21 @@ if ocs_file:
         for idx, max_col in zip(styled.index, max_each_row):
             styled.loc[idx, max_col] = f"✅ {styled.loc[idx, max_col]}"
 
-        오전_fr = pivot_fr[pivot_fr.index < 12].sum().astype(int)
-        오후_fr = pivot_fr[pivot_fr.index >= 12].sum().astype(int)
-        오전_p = pivot_p[pivot_p.index < 12].sum().astype(int)
-        오후_p = pivot_p[pivot_p.index >= 12].sum().astype(int)
+        # 오전/오후 시간 필터링 안전하게
+        오전_index = [h for h in 시간순 if h < 12]
+        오후_index = [h for h in 시간순 if h >= 12]
+
+        오전_fr = pivot_fr.reindex(오전_index).fillna(0).sum().astype(int)
+        오후_fr = pivot_fr.reindex(오후_index).fillna(0).sum().astype(int)
+        오전_p = pivot_p.reindex(오전_index).fillna(0).sum().astype(int)
+        오후_p = pivot_p.reindex(오후_index).fillna(0).sum().astype(int)
 
         오전_total = 오전_fr.astype(str) + "(" + 오전_p.astype(str) + ")"
         오후_total = 오후_fr.astype(str) + "(" + 오후_p.astype(str) + ")"
 
         frp_summary = pd.DataFrame([오전_total, 오후_total], index=['오전 총합 FR(P)', '오후 총합 FR(P)'])
 
-        styled = styled.reindex(시간순).reset_index()
+        styled = styled.reindex([h for h in 시간순 if h in styled.index]).reset_index()
         st.dataframe(styled, use_container_width=True)
         st.dataframe(frp_summary, use_container_width=True)
 
@@ -143,8 +147,8 @@ if ocs_file:
         bozon_group = df_bozon.groupby(['시', '보존내역', '구분']).size().reset_index(name='진료수')
         bozon_fr = bozon_group[bozon_group['구분'] == 'FR'].pivot(index='시', columns='보존내역', values='진료수').fillna(0).astype(int)
         bozon_p = bozon_group[bozon_group['구분'] == 'P'].pivot(index='시', columns='보존내역', values='진료수').fillna(0).astype(int)
-        bozon_fr = bozon_fr.reindex(시간순, fill_value=0)
-        bozon_p = bozon_p.reindex(시간순, fill_value=0)
+        bozon_fr = bozon_fr.reindex([h for h in 시간순 if h in bozon_fr.index], fill_value=0)
+        bozon_p = bozon_p.reindex([h for h in 시간순 if h in bozon_p.index], fill_value=0)
         bozon_merged = bozon_fr.astype(str) + "(" + bozon_p.astype(str) + ")"
         bozon_merged = bozon_merged.fillna("0(0)").reset_index()
         st.dataframe(bozon_merged, use_container_width=True)
