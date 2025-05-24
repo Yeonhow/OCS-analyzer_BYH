@@ -20,9 +20,9 @@ def classify_bozon_detail(text):
     text = str(text).lower()
     if any(k in text for k in ['endo', 'rct', 'c/f', 'post', 'core']):
         return 'Endo'
-    elif any(k in text for k in ['resin', 'gi', 'cr', 'crown', 'zir', 'p/s']):
+    elif any(k in text for k in ['resin', 'gi', 'cr', 'crown', 'zir', 'imp', 'occ', 'class']):
         return 'Operative'
-    elif any(k in text for k in ['r/c', 'pano', 'imp', 'occ']):
+    elif any(k in text for k in ['r/c', 'pano']):
         return '기타'
     else:
         return '기타'
@@ -59,8 +59,8 @@ if ocs_file:
         dept_doctor_map = {}
         for sheet in doctor_excel.sheet_names:
             df = doctor_excel.parse(sheet)
-            fr_list = df['FR'].dropna().astype(str).tolist() if 'FR' in df.columns else []
-            p_list = df['P'].dropna().astype(str).tolist() if 'P' in df.columns else []
+            fr_list = df['FR'].dropna().astype(str).str.strip().tolist() if 'FR' in df.columns else []
+            p_list = df['P'].dropna().astype(str).str.strip().tolist() if 'P' in df.columns else []
             dept_doctor_map[sheet.strip()] = {'FR': fr_list, 'P': p_list}
 
         all_records = []
@@ -111,6 +111,7 @@ if ocs_file:
         pivot_fr, pivot_p = pivot_fr.align(pivot_p, join='outer', axis=1, fill_value='0')
         merged_total = pivot_fr + "(" + pivot_p + ")"
 
+        # ✅ 가장 많은 과 표시 (교정과는 FR+P, 그 외는 FR 기준)
         styled = merged_total.copy()
         numeric_fr = pivot_fr.astype(int)
         numeric_p = pivot_p.astype(int)
@@ -128,6 +129,7 @@ if ocs_file:
         for idx, max_col in zip(styled.index, max_each_row):
             styled.loc[idx, max_col] = f"✅ {styled.loc[idx, max_col]}"
 
+        # 오전/오후 총합 (FR/P 각각 계산 후 표시)
         오전_fr = numeric_fr.loc[[9,10,11]].sum(numeric_only=True)
         오후_fr = numeric_fr.loc[[13,14,15,16]].sum(numeric_only=True)
         오전_p = numeric_p.loc[[9,10,11]].sum(numeric_only=True)
@@ -138,6 +140,8 @@ if ocs_file:
                                  (오후_fr.astype(str) + "(" + 오후_p.astype(str) + ")").to_frame().T])
         frp_summary.index = ['오전 총합 FR(P)', '오후 총합 FR(P)']
 
+        # 화면 출력
+        st.subheader("📋 전체과 오전/오후별 총진료수 (FR진료수(P진료수))")
         styled = styled.reindex(시간순).reset_index()
         st.dataframe(styled, use_container_width=True)
         st.dataframe(frp_summary, use_container_width=True)
