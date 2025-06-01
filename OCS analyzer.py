@@ -10,7 +10,6 @@ st.title("🦷 전체과 진료 요약 + 교수별 시간대 분석")
 ocs_file = st.file_uploader("1️⃣ OCS 파일 업로드", type="xlsx")
 ocs_password = st.text_input("🔐 OCS 파일 비밀번호 (있을 경우 입력)", type="password")
 
-# 고정된 doctor_list 파일 로드
 doctor_file_path = "doctor_list.xlsx"
 doctor_excel = pd.ExcelFile(doctor_file_path)
 
@@ -44,10 +43,10 @@ def detect_header_row(df):
             return i
     return None
 
-# 시트명을 실제 과명과 매칭해주는 함수
+# ✅ 과명을 시트명과 유연하게 매칭
 def match_sheet_to_dept(sheet_name, dept_doctor_map):
     for dept in dept_doctor_map.keys():
-        if dept in sheet_name:
+        if dept in sheet_name or sheet_name in dept:
             return dept
     return None
 
@@ -112,8 +111,79 @@ if ocs_file:
 
         df_all = pd.DataFrame(all_records)
 
-        # 이후 출력/집계 코드는 이전 코드와 동일하게 유지
-        # (생략 가능 — 필요시 다시 이어서 붙여드림)
+        st.subheader("📋 전체과 시간대별 진료 요약 (FR진료수(P진료수))")
+        total_group = df_all.groupby(['시', '과명', '구분']).size().reset_index(name='진료수')
+        pivot_fr = total_group[total_group['구분'] == 'FR'].pivot(index='시', columns='과명', values='진료수').fillna(0).astype(int).astype(str)
+        pivot_p = total_group[total_group['구분'] == 'P'].pivot(index='시', columns='과명', values='진료수').fillna(0).astype(int).astype(str)
+        pivot_fr, pivot_p = pivot_fr.align(pivot_p, join='outer', axis=1, fill_value='0')
+        merged_total = pivot_fr + "(" + pivot_p + ")"
+
+        # ✅ 가장 많은 과 표시
+        styled = merged_total.copy()
+        numeric_fr = pivot_fr.astype(int)
+        numeric_p = pivot_p.astype(int)
+        max_each_row = []
+        for idx in styled.index:
+            row_values = {}
+            for col in styled.columns:
+                fr_val = numeric_fr.loc[idx, col] if col in numeric_fr.columns else 0
+                p_val = numeric_p.loc[idx, col] if col in numeric_p.columns else 0
+                total_val = fr_val + p_val if col == '교정과' else fr_val
+                row_values[col] = total_val
+            max_col = max(row_values, key=row_values.get)
+            max_each_row.append(max_col)
+
+        for idx, max_col in zip(styled.index, max_each_row):
+            styled.loc[idx, max_col] = f"✅ {styled.loc[idx, max_col]}"
+
+        오전_fr = numeric_fr.loc[[9,10,11]].sum()
+        오후_fr = numeric_fr.loc[[13,14,15,16]].sum()
+        오전_p = numeric_p.loc[[9,10,11]].sum()
+        오후_p = numeric_p.loc[[13,14,15,16]].sum()
+        frp_summary = (오전_fr.astype(str) + "(" + 오전_p.astype(str) + ")").to_frame().T
+        frp_summary = pd.concat([frp_summary,
+                                 (오후_fr.astype(str) + "(" + 오후_p.astype(str) + ")").to_frame().T])
+        frp_summary.index = ['오전 총합 FR(P)', '오후 총합 FR(P)']
+
+        st.subheader("📋 전체과 오전/오후별 총진료수 (FR진료수(P진료수))")
+        styled = styled.reindex(시간순).reset_index()
+        st.dataframe(styled, use_container_width=True)
+        st.dataframe(frp_summary, use_container_width=True)
+
+        st.subheader("🦷 보존과 - Endo / Operative / 기타 (FR진료수(P진료수))")
+        df_bozon = df_all[df_all['과명'] == '보존과']
+        df_bozon = df_bozon[df_bozon['보존내역'].isin(['Endo', 'Operative', '기타'])]
+        bozon_group = df_bozon.groupby(['시', '보존내역', '구분']).size().reset_index(name='진료수')
+        bozon_fr = bozon_group[bozon_group['구분'] == 'FR'].pivot(index='시', columns='보존내역', values='진료수').fillna(0).astype(int).astype(str)
+        bozon_p = bozon_group[bozon_group['구분'] == 'P'].pivot(index='시', columns='보존내역', values='진료수').fillna(0).astype(int).astype(str)
+        bozon_fr = bozon_fr.reindex(시간순, fill_value='0')
+        bozon_p = bozon_p.reindex(시간순, fill_value='0')
+        bozon_fr, bozon_p = bozon_fr.align(bozon_p, join='outer', axis=1, fill_value='0')
+        bozon_merged = bozon_fr + "(" + bozon_p + ")"
+        bozon_merged = bozon_merged.fillna("0(0)").reset_index()
+        st.dataframe(bozon_merged, use_container_width=True)
+
+        st.subheader("👨‍⚕️ 교수별 오전/오후 진료 요약 (구강내과 · 보철과)")
+        df_prof = df_all[(df_all['과명'].isin(['구강내과', '보철과'])) & (df_all['구분'] == 'P')]
+        df_prof_summary = df_prof.pivot_table(
+            index=['과명', '예약의사'], columns='시간대', values='구분', aggfunc='count', fill_value=0
+        ).reset_index()
+        st.dataframe(df_prof_summary, use_container_width=True)
+
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            styled.to_excel(writer, index=False, sheet_name='전체과_시간대별')
+            frp_summary.to_excel(writer, index=False, sheet_name='FRP_오전오후합계')
+            bozon_merged.to_excel(writer, index=False, sheet_name='보존과_세부분류')
+            df_prof_summary.to_excel(writer, index=False, sheet_name='P교수별_오전오후')
+        output.seek(0)
+
+        st.download_button(
+            label="📥 분석 결과 엑셀 다운로드",
+            data=output,
+            file_name="OCS_진료분석결과.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
 
     except Exception as e:
         st.error(f"❌ 분석 중 오류 발생: {e}")
