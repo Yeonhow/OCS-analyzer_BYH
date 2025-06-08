@@ -15,6 +15,28 @@ doctor_excel = pd.ExcelFile(doctor_file_path)
 
 시간순 = [9, 10, 11, 13, 14, 15, 16]
 
+# ✅ 과명 별칭 사전
+alias_dict = {
+    "보철과": ["보철", "치과보철", "보철과진료", "치과보철과"],
+    "보존과": ["보존", "치과보존", "보존과진료", "치과보존과"],
+    "소아치과": ["소치", "소아", "소아치", "소아치과진료"],
+    "교정과": ["교정", "교정과진료", "치과교정과"],
+    "구강내과": ["내과", "구강내", "구강내과진료"],
+    "치주과": ["치주", "치주과진료"]
+    # 필요시 추가 가능
+}
+
+# ✅ 시트명을 실제 과명으로 매핑하는 함수 (유연하게)
+def match_sheet_to_dept(sheet_name, dept_doctor_map):
+    for dept in dept_doctor_map:
+        if dept in sheet_name or sheet_name in dept:
+            return dept
+        if dept in alias_dict:
+            for alias in alias_dict[dept]:
+                if alias in sheet_name or sheet_name in alias:
+                    return dept
+    return None
+
 def classify_bozon_detail(text):
     text = str(text).lower()
     if any(k in text for k in ['endo', 'rct', 'c/f', 'post', 'core']):
@@ -43,13 +65,6 @@ def detect_header_row(df):
             return i
     return None
 
-# ✅ 과명을 시트명과 유연하게 매칭
-def match_sheet_to_dept(sheet_name, dept_doctor_map):
-    for dept in dept_doctor_map.keys():
-        if dept in sheet_name or sheet_name in dept:
-            return dept
-    return None
-
 if ocs_file:
     try:
         if ocs_password:
@@ -61,7 +76,6 @@ if ocs_file:
         else:
             ocs_excel = pd.ExcelFile(ocs_file)
 
-        # doctor_list 처리
         dept_doctor_map = {}
         for sheet in doctor_excel.sheet_names:
             df = doctor_excel.parse(sheet)
@@ -118,7 +132,6 @@ if ocs_file:
         pivot_fr, pivot_p = pivot_fr.align(pivot_p, join='outer', axis=1, fill_value='0')
         merged_total = pivot_fr + "(" + pivot_p + ")"
 
-        # ✅ 가장 많은 과 표시
         styled = merged_total.copy()
         numeric_fr = pivot_fr.astype(int)
         numeric_p = pivot_p.astype(int)
